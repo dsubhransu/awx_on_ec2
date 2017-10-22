@@ -1,0 +1,66 @@
+# provision_staging.yml
+---
+- name: Create ec2 instance
+  hosts: all 
+  #vars_files:
+  #- vars.yml
+  tasks:
+
+  - name: Create instance 
+    ec2:
+      key_name: chouse
+      instance_type: "{{ instance_type }}" 
+      image: ami-46c1b650
+      wait: yes
+      wait_timeout: 360
+      group: ansible-container 
+      instance_tags:
+        awx-user: "{{ instance_tag }}"
+        awx-dev: true
+      count_tag:
+        awx-user: "{{ instance_tag }}"
+      exact_count: 1
+      vpc_subnet_id: subnet-65a3522e
+      assign_public_ip: yes  
+      region: us-east-1
+      termination_protection: yes
+    register: ec2
+  
+  - name: Add new instance to host group
+    add_host:
+      hostname: "{{ item.public_ip }}"
+      groupname: awx_host
+      ansible_user: centos
+    with_items: "{{ ec2.instances }}"
+    when: ec2 is defined
+
+  - name: Wait for SSH to come up
+    wait_for:
+      host: "{{ item.public_dns_name }}"
+      port: 22
+      delay: 60
+      timeout: 320
+      state: started
+    with_items: "{{ ec2.instances }}"
+    when: ec2 is defined
+
+- name: Install Docker on the new EC2 instance
+  hosts: awx_host
+  become: yes
+  roles:
+  - role: docker
+  tags: install_docker
+
+
+- name: Install AWX on the new EC2 instance 
+  hosts: awx_host
+  roles:
+  - awx
+     awx_tunables:
+       awx_secret_key: secretsecretkey
+       host_port: 127.0.0.1:8080 # Bind to localhost
+       awx_official: true # Use official AWX branding
+#     awx_web_mounts:
+#       - from: /etc/ldap/ldap.conf
+#         to: /etc/openldap/ldap.conf
+  tags: install_awx
