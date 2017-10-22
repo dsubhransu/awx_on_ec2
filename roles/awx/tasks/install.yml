@@ -1,0 +1,66 @@
+---
+- name: Add Docker APT key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+
+- name: Update repository cache
+  apt:
+    update_cache: true
+  changed_when: false
+
+# Required for the Docker repo
+- name: Add HTTPS support to APT
+  apt:
+    name: apt-transport-https
+
+- name: Add PPAs
+  apt_repository:
+    repo: "{{ item.repo }}"
+    filename: "{{ item.file }}"
+    update_cache: true
+  with_items:
+    - { file: ansible, repo: "ppa:ansible/ansible" }
+    - { file: docker, repo: "deb [arch={{ awx_arch }}] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable" }
+
+- name: Install required packages
+  apt:
+    name: "{{ item }}"
+  with_items:
+    - ansible
+    - git
+    - make
+    - python-docker
+    - docker-ce
+
+- name: Create Docker override directory
+  file:
+    path: /etc/systemd/system/docker.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: 0755
+  when: awx_docker_storage is defined
+
+- name: Overwrite Docker storage driver
+  template:
+    src: docker.storage.conf.j2
+    dest: /etc/systemd/system/docker.service.d/storage.conf
+    owner: root
+    group: root
+    mode: 0755
+  register: create_out
+  when: awx_docker_storage is defined
+
+- name: Remove Docker storage override
+  file:
+    path: /etc/systemd/system/docker.service.d/storage.conf
+    state: absent
+  register: remove_out
+  when: awx_docker_storage is not defined
+
+- name: Restart Docker
+  systemd:
+    name: docker.service
+    state: restarted
+    daemon_reload: true
+  when: create_out.changed or remove_out.changed
