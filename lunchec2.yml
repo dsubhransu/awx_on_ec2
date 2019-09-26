@@ -8,19 +8,19 @@
 
   - name: Create instance 
     ec2:
-      key_name: chouse
+      key_name: sqlbackup
       instance_type: "{{ instance_type }}" 
       image: ami-048a01c78f7bae4aa
       wait: yes
       wait_timeout: 360
-      group: ansible-container 
+      group: ansible 
       instance_tags:
         awx-user: "{{ instance_tag }}"
         awx-dev: true
       count_tag:
         awx-user: "{{ instance_tag }}"
       exact_count: 1
-      vpc_subnet_id: subnet-0321d3d8b84a2fa47
+      vpc_subnet_id: subnet-066f2d298f6370f90
       assign_public_ip: yes  
       region: ap-southeast-1
       termination_protection: yes
