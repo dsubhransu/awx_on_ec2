@@ -1,0 +1,31 @@
+---
+- hosts: 12.0.2.47
+  user: node3
+  #  vars_files:
+  #  - vars.yml
+  tasks:
+    - name: Create database user with name ' ' and password ' ' with all database privileges
+      mysql_user:
+        name: test-user
+        password: Test@123
+        priv: '*.*:ALL'
+        state: present  
+    - name: Create a new database with name 'newdb'
+      mysql_db:
+        name: newtdb
+        state: present    
+    - name: Backup Database
+      mysql_db: 
+        name: mysql
+        login_user: test-user
+        login_password: Test@123 
+        state: dump 
+        target: /tmp/mysql-21-8-19.sql
+    - name: Send Backup to S3
+      s3: 
+        aws_access_key: AKIAU24OJCWZXMGXGIOA
+        aws_secret_key: 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  
+        bucket: demo-mysql 
+        src: /tmp/mysql-21-8-19.sql 
+        object: mysql-21-8-19.sql 
+        mode: put
